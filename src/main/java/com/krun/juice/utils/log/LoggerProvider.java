@@ -1,4 +1,4 @@
-package com.krun.utils.log;
+package com.krun.juice.utils.log;
 
 import java.util.LinkedHashMap;
 import java.util.logging.Level;

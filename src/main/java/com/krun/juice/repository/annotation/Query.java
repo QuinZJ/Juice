@@ -1,7 +1,7 @@
 package com.krun.juice.repository.annotation;
 
-import com.krun.juice.repository.processor.DefaultMethodProcessor;
-import com.krun.juice.repository.processor.RepositoryMethodProcessor;
+import com.krun.juice.repository.processor.DefaultParameterProcessor;
+import com.krun.juice.repository.processor.RepositoryParameterProcessor;
 import com.krun.juice.repository.resolver.DefaultResultResolver;
 import com.krun.juice.repository.resolver.RepositoryResultResolver;
 import com.krun.juice.repository.statement.DefaultPreparedStatementProvider;
@@ -29,11 +29,11 @@ public @interface Query {
 
 	String value();
 
-	Class<? extends RepositoryStatementProvider> statementProvider() default DefaultPreparedStatementProvider.class;
+	Class<? extends RepositoryStatementProvider> provider() default DefaultPreparedStatementProvider.class;
 
 	String provideMethod () default "";
 
-	Class<? extends RepositoryMethodProcessor> processor () default DefaultMethodProcessor.class;
+	Class<? extends RepositoryParameterProcessor> processor () default DefaultParameterProcessor.class;
 
 	String processMethod () default "";
 

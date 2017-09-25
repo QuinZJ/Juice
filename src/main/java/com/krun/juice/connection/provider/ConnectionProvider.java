@@ -1,8 +1,7 @@
 package com.krun.juice.connection.provider;
 
 import com.krun.juice.connection.configuration.ConnectionConfiguration;
-import com.krun.utils.log.LoggerProvider;
-import com.mysql.jdbc.jdbc2.optional.MysqlPooledConnection;
+import com.krun.juice.utils.log.LoggerProvider;
 
 import java.io.PrintWriter;
 import java.sql.Connection;

@@ -9,7 +9,7 @@ import java.sql.Statement;
  *
  * 默认方法处理器
  */
-public class DefaultMethodProcessor implements RepositoryMethodProcessor {
+public class DefaultParameterProcessor implements RepositoryParameterProcessor {
 
 	public static final String METHOD_HANDLE = "process";
 

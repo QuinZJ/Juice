@@ -5,13 +5,13 @@ import com.krun.juice.repository.Repository;
 import com.krun.juice.repository.annotation.Entity;
 import com.krun.juice.repository.annotation.Query;
 import com.krun.juice.repository.factory.RepositoryFactory;
-import com.krun.juice.repository.processor.DefaultMethodProcessor;
-import com.krun.juice.repository.processor.RepositoryMethodProcessor;
+import com.krun.juice.repository.processor.DefaultParameterProcessor;
+import com.krun.juice.repository.processor.RepositoryParameterProcessor;
 import com.krun.juice.repository.resolver.RepositoryResultResolver;
 import com.krun.juice.repository.statement.RepositoryStatementProvider;
 import com.krun.juice.util.ClassUtils;
 import com.krun.juice.util.MethodUtils;
-import com.krun.utils.log.LoggerProvider;
+import com.krun.juice.utils.log.LoggerProvider;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
@@ -93,7 +93,7 @@ public class RepositoryInvocationHandler <R extends Repository> implements Invoc
 		this.repositoryClassName = repositoryClass.getSimpleName( );
 		this.entityClass = getEntity( );
 		Entity entity = this.entityClass.getAnnotation(Entity.class);
-		if (entity == null) this.entityName = this.entityClass.getSimpleName();
+		if (entity == null) this.entityName = this.entityClass.getSimpleName().toLowerCase();
 		else this.entityName = entity.value();
 		logger.info(String.format("获取表名: [%s]", this.entityName));
 		this.methodMap = new LinkedHashMap<>( );
@@ -166,8 +166,8 @@ public class RepositoryInvocationHandler <R extends Repository> implements Invoc
 		/*
 		  如果没有指定一个方法处理器，那么使用默认的。
 		 */
-		if (processorClass.equals(RepositoryMethodProcessor.class))
-			return MethodUtils.findMethod(DefaultMethodProcessor.class, DefaultMethodProcessor.METHOD_HANDLE);
+		if (processorClass.equals(RepositoryParameterProcessor.class))
+			return MethodUtils.findMethod(DefaultParameterProcessor.class, DefaultParameterProcessor.METHOD_HANDLE);
 
 		/*
 		 a. 使用给定名称寻找处理器
@@ -192,7 +192,7 @@ public class RepositoryInvocationHandler <R extends Repository> implements Invoc
 	private Statement getStatement (Method method) {
 		Query query = method.getAnnotation(Query.class);
 		try {
-			Class<? extends RepositoryStatementProvider> statementProvider = query.statementProvider();
+			Class<? extends RepositoryStatementProvider> statementProvider = query.provider();
 			String provideMethod = query.provideMethod();
 			if (provideMethod.isEmpty()) provideMethod = method.getName();
 			Method m = MethodUtils.findMethod(statementProvider, provideMethod);
@@ -254,7 +254,7 @@ public class RepositoryInvocationHandler <R extends Repository> implements Invoc
 				processor.getName(),
 				this.repositoryClassName,
 				method.getName()));
-		if (processor.getDeclaringClass().equals(DefaultMethodProcessor.class)) {
+		if (processor.getDeclaringClass().equals(DefaultParameterProcessor.class)) {
 			statement = (Statement) processor.invoke(null, new Object[] {value.statement, args});
 		} else {
 			Object[] callArgs = new Object[processor.getParameterCount()];
@@ -270,6 +270,6 @@ public class RepositoryInvocationHandler <R extends Repository> implements Invoc
 				resolver.getName(),
 				this.repositoryClassName,
 				method.getName()));
-		return resolver.invoke(null, statement, this.entityClass, method, method.getReturnType());
+		return resolver.invoke(null, statement, this.entityClass, method);
 	}
 }

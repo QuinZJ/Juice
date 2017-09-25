@@ -3,7 +3,7 @@ package com.krun.juice.repository.factory;
 import com.krun.juice.repository.Repository;
 import com.krun.juice.connection.configuration.ConnectionConfiguration;
 import com.krun.juice.repository.invocation.RepositoryInvocationHandler;
-import com.krun.utils.log.LoggerProvider;
+import com.krun.juice.utils.log.LoggerProvider;
 import lombok.Getter;
 
 import java.io.Serializable;

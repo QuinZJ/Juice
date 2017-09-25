@@ -2,11 +2,10 @@ package com.krun.juice.repository.resolver;
 
 import com.krun.juice.repository.annotation.Column;
 import com.krun.juice.util.ClassUtils;
-import com.krun.utils.log.LoggerProvider;
+import com.krun.juice.utils.log.LoggerProvider;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import com.mysql.jdbc.PreparedStatement;
 import java.sql.*;
 import java.util.LinkedList;
 import java.util.List;
@@ -20,14 +19,19 @@ public class DefaultResultResolver implements RepositoryResultResolver {
 	private static Logger logger = LoggerProvider.provide(DefaultResultResolver.class);
 
 	@SuppressWarnings("unchecked")
-	public static <E, T> Object resolve(Statement statement, Class<E> entityClass, Method method, Class<T> returnType)
+	public static Object resolve(Statement statement, Class<?> entityClass, Method method)
 			throws InstantiationException, IllegalAccessException, SQLException {
+		Class<?> returnType = method.getReturnType();
+		if (statement instanceof com.mysql.jdbc.PreparedStatement) {
+			logger.info(String.format("执行方法 [%s.%s()] 所配置的 sql:\n%s",
+					method.getDeclaringClass().getSimpleName(),
+					method.getName(),
+					((com.mysql.jdbc.PreparedStatement) statement).asSql()));
+		} else {
+			logger.info("Juice 默认结果解析器只能输出 `com/mysql/jdbc/PreparedStatement` 类型的执行SQL语句。");
+		}
 		if (!(statement instanceof PreparedStatement))
-			throw new RuntimeException("默认解析器只支持 PreparedStatement 语句");
-		logger.info(String.format("执行方法 [%s.%s()] 所配置的 sql:\n%s",
-				method.getDeclaringClass().getSimpleName(),
-				method.getName(),
-				((PreparedStatement) statement).asSql()));
+			throw new RuntimeException("Juice 默认结果解析器只支持 `java/sql/PreparedStatement` 类型");
 		if (!((PreparedStatement) statement).execute()) {
 			return statement.getUpdateCount();
 		}
