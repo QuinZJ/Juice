@@ -2,238 +2,9 @@
 
 ## 简介
 
-Juice 是一个练手性质的Java项目，在使用 **Mybatis**等数据库框架时，想更轻松得保留对 `SQL` 的控制，也不需要失去太多编码上的轻松，因此前天开始了 *Juice* 项目。
+*Juice* 是一个简易的、尚不完善的基于 *Java* 的`SQL数据库`工具，它提供了对`SQL语句`最大程度的控制，和一点简单的扩展能力。
 
-事实上它只是做了一层 `JDBC`的简单封装，所谓的自定义能力也只时是提供 `Connection`、`Statement` 级别的简易接口。
-
-## 功能与使用
-
-> 注：本文示例使用了 `lombok`，基于`mysql-connector(5.1.44)` 
-
-在当前这个勉强具有可用性的版本中，*Juice*可以通过类似下面的形式来使用：
-
-### 数据库连接参数配置: `ConnectionConfiguration`
-
-数据库连接参数配置使用了构造器模式，因此可以用如下方法获取一个配置:
-
-```java
-ConnectionConfiguration configuration = ConnectionConfiguration.builder()
-				.driverClass("com.mysql.jdbc.Driver")
-				.connectionURL("jdbc:mysql://localhost:3306/hsc")
-				.username("gdpi")
-				.password("gdpi")
-				.build()
-```
-
-### 仓库工厂: `RepositoryFactory`
-
-允许在一个 *Java 程序* 中存在多个仓库工厂实例，但是一般而言，只需要一个就行了：
-
-```java
-RepositoryFactory factory = RepositoryFactory.configure(connectionConfiguration);
-```
-
-这样会创建一个名为 `global`的仓库工厂，你可以这样获取它:
-
-```java
-RepositoryFactory factory = RepositoryFactory.get();
-```
-
-或者:
-
-```java
-RepositoryFactory factory = RepositoryFactory.get(RepositoryFactory.FACTORY_GLOBAL);
-```
-
-如你所见，仓库工厂的全局名称通过 `RepositoryFactory.FACTORY_GLOBAL`控制，同时它是非 `final`的，也就是说允许你修改这个值来避免遇到一些麻烦。
-
-你还可以通过这样的方式获取一个用你喜欢的名字命名的仓库工厂：
-
-```java
-RepositoryFactory factory = RepositoryFactory.configure("hello", connectionConfiguration);
-```
-
-
-
-### 表模型
-
-```java
-@Entity("student")
-@Data
-public Student {
-  
-  private String id;
-  @Column("class")
-  private String clazz;
-  private Sring gender;
-  private int grade;
-  private String major;
-  private String name;
-  
-}
-```
-
-`@Entity`注解是一个 *可选项*：
-
-你可以通过它指定该 POJO 所映射的是哪个表，如果你不指定此注解，那么 *Juice* 会使用该 POJO 类名的全小写形式作为表名。
-
-----
-
-`@Column`注解是一个 *可选项*：
-
-你可以通过它指定其所在的字段在表中的名称，如果你不指定此注解，那么*Juice*会使用该字段名作为表中字段名。
-
-> 注意：*Juice* 的默认结果解析器（`DefaultResultResolver`）的解析策略是 `表字段优先`，即如果POJO中不存在结果集的某个字段，它会引发一个异常；而如果POJO中存在一个结果集不存在的某个字段，那么解析进程会继续。
-
-###仓库: `interface Repository<E,I> `
-
-```java
-public interface StudentRepository extends Repository<Student, String> {
-
-	@Query (value = "SELECT * FROM %s")
-	List<Student> findAll();
-
-	@Query (value = "SELECT * FROM %s WHERE id = ?")
-	Student findById(String id);
-
- 	@Query (value = "UPDATE %s SET gender = ? WHERE id = ?",
-			processor = StudentProcessor.class,
-			processMethod = "replaceParameterLocation")
- 	Integer setGenderById(String id, String gender);
-
- 	@Query ("SELECT name FROM %s WHERE id = ?")
- 	Student getNameById(String id);
-
-}
-```
-
-如果你想为一个表模型定义一个仓库，只需要创建一个接口，并使其继承 `Repository<表模型，表模型主键类型>`接口，请记得填入泛型信息，*Juice*依赖它们进行工作。
-
-> 事实上当前版本 的*Juice*并不区分一个字段是主键还是普通字段，这样的接口签名只是为了以后的完善而预留的。
-
-`@Query`是一个必填项：
-
-如果你希望为仓库中的某个方法注入 *Juice* 的逻辑，那么请为这个方法添加 `@Query`注解，否则会在`方法扫描`阶段被 *Juice*所忽略。
-
-`@Query`具有以下属性:
-
-|      属性名      |                    类型                    | 是否必须 | 说明                                       |
-| :-----------: | :--------------------------------------: | :--: | :--------------------------------------- |
-|     value     |                  String                  |  是   | 该属性配置此方法所执行的 `sql `语句，其中有些约定，请参见下文。      |
-|   processor   | Class<? extends RepositoryMethodProcessor> |  否   | 该属性配置此方法在参数注入阶段的处理器方法，默认值为 `DefaultMethodProcessor`，它将把参数按顺序填入 `sql`语句。 |
-| processMethod |                  String                  |  否   | 该属性配置 processor 的具体方法名称，默认值为 `注解所在方法名`或`process`，你可以在多个方法共用一个处理器时使用相同的处理器名称或`process。` |
-|   provider    | Class<? extends RepositoryStatementProvider> |  否   | 该属性配置此方法的 `sql`语句所使用的具体 `Statement`类型，默认值为 `DefaultStatementProvider`，它将为`sql`语句创建一个 `MysqlPreparedStatement`。 |
-| provideMethod |                  String                  |  否   | 该属性配置 provider 的具体方法名称，默认值为 `注解所在方法名`或 `provide`，你可以在多个方法共用一个处理器时使用相同的处理器名称或`provide`。 |
-|   resolver    | Class<? extends RepositoryResultResolver> |  否   | 该属性配置此方法的执行结果的解析器，默认值为 `DefaultResultResolver`，它有着非常多的限制，请参见下文。 |
-| resolveMethod |                  String                  |  否   | 该属性配置 resolver 的具体方法名称，默认值为 `注解所在方法名`或 `resolve`，你可以在多个方法共用一个处理器时使用相同的处理器名称或`resolve`。 |
-
-
-
-> 注：无论是 `MethodProcessor`、`StatementProvider` 还是 `ResultResolver`的`**Method` 都必须是静态方法。这并没有太多考量，主要是为了减轻对象创建和缓存的压力。
-
-
-
-####`@Query.value`属性值约定
-
-* `%s`占位符用于 *Juice* 填入表模型所映射的表的名名称
-* `?` 占位符是沿用 `PreparedStatement` 的做法，因此事实上如果你使用的是其他`Statement`实现，那么除了 `%s`占位符，参数占位符是可以自定义的，这可以通过自定义方法处理器和语句供应器实现。
-
-**注意**
-
-`?`占位符与参数的物理位置相对应，例如
-
-```java
-Integer setGenderById(String id, String gender);
-```
-
-按照编码习惯，会把 `id`写在前面，但默认的方法处理器只是简单得把参数按顺序注入语句，因此在默认语句供应器中，上述方法在以 `{id = "20152203300", gender = "男"}` 调用时，会生成如下语句:
-
-```mysq
-UPDATE student SET gender = '20152203300' WHERE id = '男';
-```
-
-这显然是不对的，因此需要为该方法配置一个方法处理器来改变参数注入顺序:
-
-```java
-public class StudentProcessor implements RepositoryMethodProcessor {
-
-	public static Statement replaceParameterLocation(PreparedStatement statement, String id, String gender) throws SQLException {
-		statement.setString(1, gender);
-		statement.setString(2, id);
-		return statement;
-	}
-```
-
-
-
-####方法处理器：`interface RepositoryMethodProcessor`
-
-方法处理器用于参数注入阶段，如果想精确记录每次 `SQL`执行的参数情况、或是想做一层参数检查，那么可以自定义一个方法处理器，接受一个 `Statement`(在默认情况下这会是个`MysqlPreparedStatement`，只是因为它实现了`asSql()`方法，可以方便得输出参数注入后的`sql`语句 LOL)和参数列表，只需要将注入参数后的 `statement`返回给 *Juice* 即可。
-
-默认的方法处理器签名如下：
-
-```java
-public static Statement process (Statement statement, Object ...args) throws Exception 
-```
-
-而自定义的方法处理器签名如下：
-
-```java
-public static Statement findAll (Statement statement) throws SQLException
-
-public static Statement findById (Statement statement, String id) throws Exception
-```
-
-当前版本尚未完全处理一个问题：如果一个自定义方法处理器想像默认方法处理器那样声明参数列表 (`(Statement statement, Object ...args)`) 这会引发参数类型不匹配的错误。
-
-这是因为 `Object ...args` 这种声明，在反射时对应 `Object[] args`，也就是说它的参数类型会是 一个数组，而自定义方法处理器时基本会给定明确的参数类型，这两种参数列表类型会导致在反射时无法直接通过 `method.invoke(null, statement, args)`来完成，要么引发参数数量不对的错误、要么就是前文所说的参数类型不匹配的错误。
-
-这两天应该会修复这个问题。
-
-
-
-####语句供应器: `interface RespositoryStatementProvider`
-
-语句供应器用于方法扫描时创建一个 `statement`实例，如果想使用自定义的特定 `statement`实现，即可自定义过一个语句供应器，接受一个 `Connection`和`SQL`语句，`Connection`的类型由所配置的数据库驱动决定。
-
-语句供应器签名如下：
-
-```java
-public static PreparedStatement provide(Connection connection, String sql) throws Exception
-```
-
-它将返回一个 `PreparedStatement`，如果使用了`mysql-connector`，那么这个 `statement`将会是 *Juice* 所有默认实现所依赖的 `MysqlPreparedStatement`，如果你使用了其他的数据库驱动和`statment`，那么将无法使用 *Juice*的默认结果解析器，因为它会检查是否使用的时 `MysqlPreparedStatement`。
-
-
-
-####结果解析器: `interface RepositoryResultResolver`
-
-结果解析器用于解析 `SQL`执行结果，它接受一个 `statement`和 `表模型类`、`所触发的接口方法`和`该方法的返回值`。 
-
-> 注意：传递给解析器的 `statement`是尚未执行的，因为语句的执行取决于其实现类，而标准的 `Statement.exectue`系列接口都需要额外参数，这是*Juice*无法保证能处理的情况。
-
-默认的结果解析器 `DefaultResultResolver`只接受 `MysqlPreparedStatement`类型，因为它需要这个实现的 `asSql()`方法来输出参数注入后的 `SQL`语句。
-
-同时默认的结果解析器具有相当大的限制：
-
-* 只能解析仓库类所标记的表模型和它的 List 形式
-* 默认解析器的`UPDATE/DELETE`类操作只能返回 `getUpdateCount()`的结果，这意味着在 `exist(I id)`系列方法的情况下无法自动映射结果到一个 `boolean` 值。
-* 没有类型检查，默认解析器在映射字段值到表模型字段时使用的是 `field.set(entity, resultSet.get(index, field.getType()))`这种做法，这意味着你如果使用默认解析器，那么必须由你自己保证 表模型的字段类型是合适的。
-* 由于上一点，导致默认解析器无法解析一个表模型字段是另一个POJO类型的情况
-
-结果解析器签名如下：
-
-```java
-public static <E, T> Object resolve(Statement statement, Class<E> entityClass, Method method, Class<T> returnType) throws Exception {
-```
-
-#### 获取一个仓库实例
-
-```java
-StudentRepository repository = factory.get(StudentRepository.class);
-```
-
-###  效果
+##使用效果
 
 ```java
 RepositoryFactory factory = RepositoryFactory.configure(ConnectionConfiguration.builder()
@@ -258,3 +29,324 @@ Student student2 = repository.findById("20152203300");
 // {name: "krun", id: "20152203300", gender: "男",  major: "软件技术", ...}
 ```
 
+##功能与使用
+
+使用 *Juice* 只需要简单的几步：
+
+
+
+注: 本示例使用 `lombok` 和 `mysql-connector(5.1.44)`
+
+
+
+### 数据库连接配置: `ConnectionConfiguration`
+
+当前版本的 *Juice* 只需要以下几个参数用以连接数据库：
+
+* `driverClass`：这个参数用于向驱动管理器注册一个数据库连接驱动。(本示例将使用 `com.mysql.jdbc.Driver`)
+
+
+*  `connectionURL`： 这个参数用于向驱动管理器获取一个数据库连接，常用的如：`jdbc:mysql://localhost:3306/juice`，您可以附带任何连接语句中允许附加的参数，如字符编码设置等等。
+* `username`: 这个参数是获取数据库连接时所需要的数据库账户名
+* `password`： 这个参数是获取数据库连接时所需要的数据库密码
+
+> 不建议直接在 `connectionURL`中配置连接所需的数据库账户及密码。
+
+在未来的版本中，`Juice`会尝试加入对 `*.properties`文件的支持，如此一来，您可以直接在 `*.properties`文件中设置连接的详细参数。对**MySQL**适用的 `properties`选项请参见[这里](#"https://dev.mysql.com/doc/connector-j/5.1/en/connector-j-reference-configuration-properties.html")。
+
+
+
+在 Java SE 环境中，您可以通过 `ConnectionConfiguration.builder()`构造器来构造一个配置：
+
+```java
+ConnecetionConfiguration conf = ConnectionConfiguration.builder()
+  									.driverClass("com.mysql.jdbc.Driver")
+  									.connectionURL("jdbc:mysql://localhost:3306/juice")
+  									.username("gdpi")
+  									.password("gdpi")
+  									.build();
+```
+
+如果是类似 *Spring* 这样可以配置 `Bean`实例的环境中，您可以使用类似如下的方式来以`Bean`的方式创建一个配置:
+
+```xml
+<bean id="connectionConfiguration"
+      class="com.krun.juice.connection.configuration.ConnectionConfiguration"> 
+	<constructor-arg name="driverClass" value="com.mysql.jdbc.Driver" /> 
+	<constructor-arg name="connectionURL" value="jdbc:mysql://localhost:3306/juice" /> 
+	<constructor-arg name="username" value="gdpi" /> 
+	<constructor-arg name="password" value="gdpi" /> 
+</bean>
+```
+
+
+
+###仓库工厂:  `RepositoryFactory`
+
+仓库工厂是创建、管理仓库的地方。*Juice* 允许在一个 Java Application 中存在多个仓库工厂的实例，但由于每个仓库工厂都会持有一个 *数据库连接供应器(ConnectionProvider)* ，因此建议使用默认全局工厂。
+
+>  每个工厂都由一个自己的名字，默认全局工厂的名字为: `global`， 这并不是一个常量值，为了避免某些情况下发生冲突，*Juice* 允许你在创建前修改 `RepositoryFactory.FACTORY_GLOBAL` 的值来更改默认全局工厂的名字。请注意，如果您在创建全局工厂后修改了该值，那么再次使用 *不指定名称的工厂获取方法(`RepositoryFactory.get()`)*将导致重新创建一个以新值命名的全局工厂。
+
+在使用仓库工厂前，需要传入一个 `ConnectionConfiguration`实例，使仓库工厂得以初始化内部的数据库连接供应器。
+
+
+
+在 Java SE 环境中，您可以通过下面的方式来配置仓库工厂:
+
+```java
+//这里的 conf 即为前一节所创建的数据库连接配置
+
+// 配置全局仓库工厂
+RepositoryFactory globalFactory = RepositoryFactory.configure(conf);
+
+// 配置指定名称的仓库工厂
+RepositoryFactory fooFactory = RepositoryFactory.configure("foo", conf);
+
+// 请注意，使用第二种方式配置工厂时，使用默认全局工厂名称将抛出错误，因为这会破坏 API 所划分的全局、特定工厂的界限
+RepositoryFactory wrongFactory = RepositoyFactory.configure(RepositoryFactory.FACTORY_GLOBAL， conf);
+// > RuntimeException
+```
+
+如果是类似 *Spring* 这样可以配置 `Bean`实例的环境中，您可以使用类似如下的方式来以`Bean`的方式创建仓库工厂:
+
+```xml
+<bean id="globalFactory"
+      class="com.krun.juice.repository.factory.RepositoryFactory"> 
+	<constructor-arg ref="connectionConfiguration" /> 
+</bean>
+
+<bean id="fooFactory"
+      class="com.krun.juice.repository.factory.RepositoryFactory"> 
+  	<constructor-arg name="name" value="foo" />
+	<constructor-arg name="connectionConfiguration" ref="connectionConfiguration" /> 
+</bean>
+```
+
+
+
+在配置仓库工厂后，您可以通过 `RepositoryFactory.get()`和 `RepositoyFactory.get(name)`来获取全局或给定名称的仓库工厂。
+
+
+
+### 表模型
+
+*Juice* 可以将您给定的一个 Java 类视为一个表模型，就像下面这样:
+
+```java
+@Data
+@Entity("student")
+public class Student {
+
+   private String id;
+
+   @Column("class")
+   private String clazz;
+
+   private int code;
+   private String college;
+   private String gender;
+   private int grade;
+   private String major;
+   private String name;
+
+}
+```
+
+>  `@Data` 注解来自 `lombok`
+
+`@Entity` 注解是一个可选项，它只有一个必填属性: `value`。当配置该注解时，*Juice*将使用该值作为表名；如果您指定了这个类是个表模型，*Juice* 却找不到该注解时，将使用类名的全小写形式作为表名。
+
+`@Column`注解同样是一个可选项，它只有一个必填属性: `value`。当配置该注解时，`Juice`将使用该值作为数据库中此表的字段名，否则使用 Java 类字段名作为数据库中此表的字段名。
+
+### 仓库: `Repository`
+
+`Repository` 是一个注解，它实际上只是一个用于表明某个接口是一个仓库的标记。就像下面这样:
+
+```java
+public interface StudentRepository extends Repository<Student, String> {
+
+	@Query (value = "SELECT * FROM %s")
+	List<Student> findAll();
+
+	@Query (value = "SELECT * FROM %s WHERE id = ?")
+	Student findById(String id);
+
+ 	@Query (value = "UPDATE %s SET gender = ? WHERE id = ?",
+			processor = StudentChain.class,
+			processMethod = "replaceParameterLocation")
+ 	Integer updateGenderById(String id, String gender);
+
+ 	@Query ("SELECT name FROM %s WHERE id = ?")
+ 	Student getNameById(String id);
+
+}
+```
+
+`Repository`需要填入两个泛型信息，第一个是该仓库所操作的表模型，第二个是该表模型的主键类型。
+
+> 注: 事实上到目前为止，*Juice* 并不区分主键和其他字段，只是为了以后完善留下空间。
+
+
+
+#### `@Query` 注解
+
+由于到目前为止，*Juice* 短期内不会实现 *解析方法名并映射为一个SQL操作* 这个 feature， 因此需要 `@Query` 注解来标记一个方法，并以此提供一些信息，*Juice* 提供的扩展能力也在这里体现:
+
+`@Query`注解具有以下七个属性：
+
+* `String value`: 这个属性指定了方法所映射的 `SQL`操作，其中有着一些约定：`%s`占位符用于 *Juice* 填充表名，而 `?` 占位符是 `PreparedStatement` 所使用的参数占位符。由于 *Juice* 提供简单的默认实现，这些默认实现使用的就是 `PreparedStatement`，因此如果您使用了不一样的`Statement`实现，您可以使用任何与之配合的占位符。注意：如果您选择了使用 `%*`系列作为占位符，那么请记得第一个 `%s`将会被 *Juice* 用来填充表名。
+* `Class<? extends RepositoryStatementProvider> provider`: 这个属性指定了语句供应器所处的类，您可以指定任何实现了`RepositoryStatementProvider`接口的类，默认值为 *Juiec* 提供的`DefaultPreparedStatementProvider`，详细信息请参见下文。
+* `String provideMethod`: 这个属性指定了注解所在方法所使用的语句供应器，当`provider` 属性使用默认值时，此属性无效；默认值为注解所在方法的名字或`provide`。
+* `Class<? extends RepositoryParameterProcessor> processor`: 这个属性指定了参数处理器所处的类，您可以指定任何实现了 `RepositoryParameterProcessor`接口的类，默认值为 *Juiec* 提供的默认参数处理器 `DefaultParameterProcessor`，详细信息请参见下文。
+* `String processMethod`: 这个属性指定了注解所在方法所使用的参数处理器，当`processor`属性使用默认值时，此属性无效；默认值为注解所在方法的名字或 `process`。
+* `Class<? extends RepositoryResultResolver> resolver`: 这个属性指定了结果解析器所处的类，您可以指定任何实现了 `RepositoryResultResolver`接口的类，默认值为 *Juiec* 提供的 `DefaultResultResolver`，详细信息请参见下文。
+* `String resolveMethod`: 这个属性指定了注解所在方法所使用的结果解析器，当`resolver`属性使用默认值时，此属性无效；默认值为注解所在方法的名字或 `resolve`。
+
+**注意**：
+
+您所指定的 `provideMethod`、`processMethod`、`resolveMethod`都必须是静态方法，这并无太多考量，只是为了减轻 *Juice* 的对象管理成本。
+
+
+
+##### 语句供应器 `RepositoryStatementProvider`
+
+一个语句供应器的方法签名应该如下:
+
+```java
+public static Statement provideMethodName(Connection connection, String sql)
+```
+
+供应器所在的类是 `@Query.provider` 的值，方法名是 `@Query.provideMethod` 的值。
+
+供应器接收一个 `java.sql.connection`和`@Query.value`值，并返回一个 `java.sql.statement`。
+
+> 这里的 `sql` 已经填充了表名
+
+>  这里的`Connection`可以不关闭，它会由仓库工厂进行复用。
+
+注意：供应器只会在仓库工厂第一次创建工厂时调用，而参数处理器和结果解析器将在每次仓库方法被调用时调用。
+
+如果您希望使用项目所特定的、实现了装饰器模式的、特殊的`Statement`实例，可以为方法定义一个、或创建一个全局的语句供应器，并为所有方法指定。
+
+*也许后期会在 factory 中加入替换默认语句供应器、参数处理器、结果解析器的接口。*
+
+
+
+默认的语句供应器 `DefaultPreparedStatementProvider.provide`将根据给定 `sql`创建一个 `com.mysql.jdbc.PreparedStatement`实例。
+
+
+
+#####参数处理器 `RepositoryParameterProcessor`
+
+一个参数处理器的方法签名应该类似下面这样(这里对应的是 `StudentRepository.findById`):
+
+```java
+public static Statement findById (Statement statement, String id)
+```
+
+处理器所在的类是 `@Query.processor`的值，方法名是 `@Query.processMethod` 的值。
+
+处理器接收一个`java.sql.statement`和具体的参数列表，并返回一个`java.sql.statement`。
+
+如果您希望在每次方法调用时都有个地方可以记录日志、进行参数检查，可以为其配置一个参数处理器。
+
+在当前版本的 *Juice* 中，如果您希望处理类似下面这种情况:
+
+```java
+public StudentRepository extends Repository<Student, String> {
+  
+  @Query("INSERT INTO %s (%s) VALUES (%s)")
+  Integer insert(Student student);
+  
+}
+```
+
+您需要为其配置一个语句供应器:
+
+```java
+public static Statement insert(Connection connection, String sql) {
+    return connection.prepareStatement(
+      String.format(sql,
+		StringUtils.convertObjectFields2StringList(Student.class)));
+}
+```
+
+和一个参数处理器:
+
+```java
+public static Statement insert(Statement statement, Student student) {
+    PreparedStatement ps = (PreparedStatement) statement;
+  	for (Field field : student.getClass().getDeclaringFields()) {
+      field.setAccessable(true);
+      ps.setObject(index, field.get(student));
+    }
+}
+```
+
+> 以上均为伪代码
+
+
+
+*Juice* 所提供的默认参数处理器 `DefaultParameterProcessor`，只是简单得把参数按顺序填充入`SQL`语句中并返回。因此，类似下面这种情况可能会发生错误:
+
+```java
+public StudentRepository extends Repository<Student, String> {
+    
+  @Query("UPDATE %s SET gender = ? WHERE id = ?")
+  Integer setGenderById(String id, String gender);
+  
+}
+```
+
+`setGenderById`的参数列表中，`id`在前，`gender`·在后，这会使得`DefaultParameter.process`输出:
+
+```mysq
+UPDATE student SET gender = {id} WHERE id = {gender}
+```
+
+显然这是错误的。如果要避免这种情况，可以直接把方法的参数列表按	`SQL`语句中的参数顺序排放；也可以为其指定一个参数处理器用以调整参数填充顺序。
+
+##### 结果解析器 `RepositoryResultResolver`
+
+一个结果解析器的方法签名应该类似下面这样:
+
+```java
+public static Object resolve(Statement statement, Class<?> entityClass, Method method)
+```
+
+解析器所在的类是 `@Query.resolver` 的值，方法名是`@Query.resolveMethod`的值。
+
+解析器接收一个`java.sql.statement`语句、`Class<?>`表模型的类声明、`Method`触发解析器的仓库方法声明。
+
+> 这里的 `statement` 尚未执行，因为`java.sql.statement.execute`系列接口需要一些额外参数，这导致 *Juice*无法确保一致的行为。因此当您配置了一个结果解析器，语句的执行时机将推迟到这里。
+
+*Juice* 所提供的默认解析器 `DefaultResultResolver`有着很多限制：
+
+* 只支持解析仓库所声明的表模型类型和其`List`形式
+* 对于 `INSERT/UPDATE/DELETE`操作，只会返回`Integer`数值用以表示该`SQL操作`影响的行数
+* 不支持表模型字段含有其他非`SQL types`类型的递归、嵌套解析
+
+因此，如果您希望能解析复杂的结果，例如将前一节中的 `insert`操作返回插入后的结果并映射为一个`Student`:
+
+```java
+public StudentRepository extends Repository<Student, String> {
+    
+  @Query("UPDATE %s SET gender = ? WHERE id = ?")
+  Student setGenderById(String id, String gender);
+  
+}
+```
+
+
+
+那么还需要配置一个结果解析器:
+
+```java
+public static Student insert(Statement statement, Class<?> entityClass, Method method) {
+    // 解析逻辑...
+}
+```
+
+## 结束
+
+那么， *Juice* 的介绍、使用帮助就到此结束了，感谢您的观看 : )
