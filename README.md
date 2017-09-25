@@ -8,7 +8,7 @@
 [做个数据库帮助库雏形](https://segmentfault.com/a/1190000011314783)
 [做个数据库帮助库雏形2](https://segmentfault.com/a/1190000011319877)
 
-##使用效果
+## 使用效果
 
 ```java
 RepositoryFactory factory = RepositoryFactory.configure(ConnectionConfiguration.builder()
@@ -33,7 +33,7 @@ Student student2 = repository.findById("20152203300");
 // {name: "krun", id: "20152203300", gender: "男",  major: "软件技术", ...}
 ```
 
-##功能与使用
+## 功能与使用
 
 使用 *Juice* 只需要简单的几步：
 
@@ -85,7 +85,7 @@ ConnecetionConfiguration conf = ConnectionConfiguration.builder()
 
 
 
-###仓库工厂:  `RepositoryFactory`
+### 仓库工厂:  `RepositoryFactory`
 
 仓库工厂是创建、管理仓库的地方。*Juice* 允许在一个 Java Application 中存在多个仓库工厂的实例，但由于每个仓库工厂都会持有一个 *数据库连接供应器(ConnectionProvider)* ，因此建议使用默认全局工厂。
 
@@ -240,7 +240,7 @@ public static Statement provideMethodName(Connection connection, String sql)
 
 
 
-#####参数处理器 `RepositoryParameterProcessor`
+##### 参数处理器 `RepositoryParameterProcessor`
 
 一个参数处理器的方法签名应该类似下面这样(这里对应的是 `StudentRepository.findById`):
 
