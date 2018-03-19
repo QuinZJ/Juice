@@ -71,20 +71,6 @@ ConnecetionConfiguration conf = ConnectionConfiguration.builder()
   									.build();
 ```
 
-如果是类似 *Spring* 这样可以配置 `Bean`实例的环境中，您可以使用类似如下的方式来以`Bean`的方式创建一个配置:
-
-```xml
-<bean id="connectionConfiguration"
-      class="com.krun.juice.connection.configuration.ConnectionConfiguration"> 
-	<constructor-arg name="driverClass" value="com.mysql.jdbc.Driver" /> 
-	<constructor-arg name="connectionURL" value="jdbc:mysql://localhost:3306/juice" /> 
-	<constructor-arg name="username" value="gdpi" /> 
-	<constructor-arg name="password" value="gdpi" /> 
-</bean>
-```
-
-
-
 ### 仓库工厂:  `RepositoryFactory`
 
 仓库工厂是创建、管理仓库的地方。*Juice* 允许在一个 Java Application 中存在多个仓库工厂的实例，但由于每个仓库工厂都会持有一个 *数据库连接供应器(ConnectionProvider)* ，因此建议使用默认全局工厂。
@@ -110,23 +96,6 @@ RepositoryFactory fooFactory = RepositoryFactory.configure("foo", conf);
 RepositoryFactory wrongFactory = RepositoyFactory.configure(RepositoryFactory.FACTORY_GLOBAL， conf);
 // > RuntimeException
 ```
-
-如果是类似 *Spring* 这样可以配置 `Bean`实例的环境中，您可以使用类似如下的方式来以`Bean`的方式创建仓库工厂:
-
-```xml
-<bean id="globalFactory"
-      class="com.krun.juice.repository.factory.RepositoryFactory"> 
-	<constructor-arg ref="connectionConfiguration" /> 
-</bean>
-
-<bean id="fooFactory"
-      class="com.krun.juice.repository.factory.RepositoryFactory"> 
-  	<constructor-arg name="name" value="foo" />
-	<constructor-arg name="connectionConfiguration" ref="connectionConfiguration" /> 
-</bean>
-```
-
-
 
 在配置仓库工厂后，您可以通过 `RepositoryFactory.get()`和 `RepositoyFactory.get(name)`来获取全局或给定名称的仓库工厂。
 
